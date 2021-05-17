@@ -12,3 +12,7 @@ First, you need to run `bad_apple_vectorize.py` in the same folder as the video 
 Next, run `bad_apple_turtle.py` in the same folder as the original video and the new vector file. This should open up a turtle window and a VLC window playing the original video. You need to make sure the `VIDEO_PATH` in `bad_apple_turtle.py` also matches the filename of the video.
 
 If the turtle is not synchronized with the video, make sure the `TARGET_FPS` variable is set to the same framerate as the video you're playing.
+
+I used this video: https://www.youtube.com/watch?v=UkgK8eUdpAo
+
+Theoretically, you could probably put any video through this, but I do not know how well it would work and it would be converted to black and white.
