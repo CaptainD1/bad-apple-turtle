@@ -9,10 +9,13 @@ VIDEO_PATH = 'BadApple.mp4'
 # Framerate of exported vectors (could be different from video)
 TARGET_FPS = 30
 
+# File containing the vectors
+VECTOR_FILE = "bad_apple_vectors.dat"
+
 def main():
 
     # Load vectors
-    with open("list_paths_2.dat", 'rb') as file:
+    with open(VECTOR_FILE, 'rb') as file:
         paths = pickle.load(file)
 
     # Setup turtle
