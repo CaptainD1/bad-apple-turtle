@@ -1,18 +1,20 @@
 # bad-apple-turtle
 A program that plays Bad Apple!! on a Python Turtle
 
-I just made this in the course of a few hours, so don't expect it to be perfect or anything. I might fix it up at some point.
+This had just been nearly completely re-written to be better in almost every way. Pypotrace is no longer used in this version.
 
-You need OpenCV, python-vlc, and pypotrace instralled for this to work.
+You need OpenCV installed for this to work. Python-vlc is also used when playing back a video along side the turtle, but it technically optional.
 
 Make sure OpenCV is installed with FFMPEG support and VLC Media Player is installed before python-vlc.
 
-First, you need to run `bad_apple_vectorize.py` in the same folder as the video file for Bad Apple. This converts each frame of the video into vectors for the turtle to display. It will take a little while to do. You will probably need to either rename the video or change the `VIDEO_PATH` variable in the Python file.
+First, you need to run `bad_apple_vectorize.py` while specifying an input video. This converts each frame of the video into vectors for the turtle to display. You can specify an output file, but if not, it will append "\_vectorized" to the name and change the extension to `.dat`.
 
-Next, run `bad_apple_turtle.py` in the same folder as the original video and the new vector file. This should open up a turtle window and a VLC window playing the original video. You need to make sure the `VIDEO_PATH` in `bad_apple_turtle.py` also matches the filename of the video.
+Next, run `bad_apple_turtle.py` and specify the name of the new vector file. This will open up a turtle window that will play the video. You can include a video with the vector file using `-v <video_path>`. If you do, a VLC window will also open and play the original video, synchronized with the turtle. When specifying an external video, it will usually drop a few frames of the turtle video at the beginning while trying to synchronize the two.
 
-If the turtle is not synchronized with the video, make sure the `TARGET_FPS` variable is set to the same framerate as the video you're playing.
+If the turtle is not synchronized with the video, you can try increasing the `VLC_INITIAL_DELAY` variable, though it's already fairly high. If you are getting lots of dropped frames, you can try increasing `OFFSET_TOLERANCE` or get a faster computer.
 
 I used this video: https://www.youtube.com/watch?v=UkgK8eUdpAo
 
-Theoretically, you could probably put any video through this, but I do not know how well it would work and it would be converted to black and white.
+Theoretically, you could probably put any video through this, but I do not know how well it would work and it would be converted to binary black and white.
+
+I plan to eventually release this on pypi, but I'm going to make sure I get everything streamlined first.

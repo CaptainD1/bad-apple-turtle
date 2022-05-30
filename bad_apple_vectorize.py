@@ -1,66 +1,82 @@
-import cv2
-import potrace
-import pickle
+import argparse
+import pathlib
+import struct
+import math
 
-VIDEO_PATH = 'BadApple.mp4'
-OUTPUT_FILE = "bad_apple_vectors.dat"
+import cv2
+
+import vector_video_encode
 
 def main():
 
-    # Load video and read first frame
-    source = cv2.VideoCapture(VIDEO_PATH)
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Converts a video into vector data.')
+    parser.add_argument('input', type=str,
+        help="Input video to parse")
+    parser.add_argument('-o', '--output', type=str, default=None,
+        help="Output file path")
+    parser.add_argument('-s', '--start', type=int, default=0,
+        help="Start frame")
+    parser.add_argument('-e', '--end', type=int, default=-1,
+        help="End frame")
+
+    args = vars(parser.parse_args())
+
+    input_path = pathlib.Path(args['input'])
+    if args['output']:
+        output_path = pathlib.Path(args['output'])
+    else:
+        # Default output path
+        output_path = input_path.parent / (input_path.stem + '_vectorized.dat')
+
+    # Load video to vectorize
+    source = cv2.VideoCapture(str(input_path))
+
+    # Get video metadata
+    source_framerate = source.get(cv2.CAP_PROP_FPS)
+    source_frame_count = int(source.get(cv2.CAP_PROP_FRAME_COUNT))
+    source_frame_dimensions = (int(source.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            int(source.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+
+    # Set start and end frames
+    frame_num = args['start']
+    end_frame = args['end'] if args['end'] >= 0 else source_frame_count
+    if frame_num > 0:
+        source.set(1, frame_num)
+
+    frame_count_digits = int(math.log10(end_frame) + 1)
+
     success, orig = source.read()
 
-    paths = []
+    # Create output file and write metadata
+    output_path.write_bytes(struct.pack('<fIII', source_framerate, end_frame - frame_num,
+            source_frame_dimensions[0], source_frame_dimensions[1]))
 
-    frame = 0
-    frameThreshold = 50000
-
-    # Try to save even if process interrupted
+    # Stop gracefully if process interrupted
     try:
-        while success:
+        while success and frame_num <= end_frame:
 
-            # Flip video and convert to black and white
-            image = cv2.flip(cv2.threshold(cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY), 128, 1, cv2.THRESH_BINARY)[1], 0)
+            # Convert video to black and white
+            image = cv2.threshold(cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY), 128, 1,
+                    cv2.THRESH_BINARY)[1]
 
-            # Vectorize image
-            bmp = potrace.Bitmap(image)
-            path = bmp.trace(turnpolicy = potrace.TURNPOLICY_BLACK, opttolerance=0.2)
+            # Vectorize video
+            contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-            # Recursively tesselate paths in proper order for coloring
-            output_path = []
-            tesselate(path, output_path, 0)
-            paths.append(output_path)
+            # Encode vectors into bytes and write to file
+            data = vector_video_encode.encode_frame(contours, hierarchy)
+            with output_path.open('ab') as file:
+                file.write(data)
 
-            print("Frame {} complete".format(frame))
+            print(f"Frame {frame_num:0{frame_count_digits}}/{end_frame} complete", end='\r')
 
-            # Break if frame threshold is reached (for testing)
-            if frame > frameThreshold:
-                break
-
-            # Increment and read next frame
-            frame += 1
+            frame_num += 1
             success, orig = source.read()
-    finally:
-        # Save frame data
-        print("Saving data in {}".format(OUTPUT_FILE))
-        with open(OUTPUT_FILE, 'wb') as file:
-            pickle.dump(paths, file)
 
-def tesselate(path, output, color):
-    sub_curves = []
-    for curve in path:
+    except KeyboardInterrupt:
+        print("\nConversion cancelled")
 
-        # Remove all children from curve
-        sub_curves.extend(curve.children)
-        curve.children = []
+    print(f"\nPath file saved to: {output_path}")
 
-        # Tesselate parent curve
-        tesselated = curve.tesselate()
-        output.append((color, tesselated))
-    
-    # Recursively tesselate all children curves afterwards with inverted color
-    if len(sub_curves) > 0:
-        tesselate(sub_curves, output, 1 - color)
-
-main()
+if __name__ == "__main__":
+    main()
