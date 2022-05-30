@@ -7,9 +7,6 @@ import math
 
 import vector_video_decode
 
-OFFSET_TOLERANCE = 0.002
-VLC_INITIAL_DELAY = 1.5
-
 def main():
 
     # Parse command line arguments
@@ -20,11 +17,16 @@ def main():
         help="Video to play along with turtle.")
     parser.add_argument('-s', '--start', type=int, default=0,
         help="Starting frame of video.")
+    parser.add_argument('--scale', type=float, default=1.0,
+        help="Scale multiplier of turtle graphics.")
+    parser.add_argument('--vlc_scale', type=float, default=0.2,
+        help="Scale multiplier of VLC preview window.")
+    parser.add_argument('--vlc_delay', type=float, default=1.5,
+        help="The delay in seconds after playing VLC video before synchronizing the turtle.")
+    parser.add_argument('--tolerance', type=float, default=0.002,
+        help="The tolerance of desync in seconds before the turtle drops frames.")
 
     args = vars(parser.parse_args())
-
-    vector_path = pathlib.Path(args['input'])
-    video_path = pathlib.Path(args['video']) if args['video'] else None
 
     # Setup turtle
     tortoise = turtle.Turtle()
@@ -35,13 +37,19 @@ def main():
     screen.tracer(0,0)
 
     # Play actual animation
-    play_animation(tortoise, screen, vector_path, video_path, args['start'])
+    play_animation(tortoise, screen, args)
 
     # Close the screen when finished
     screen.bye()
 
-def play_animation(tortoise: turtle.Turtle, screen: turtle.TurtleScreen,
-        vector_path: pathlib.Path, video_path: pathlib.Path, start_frame: int):
+def play_animation(tortoise: turtle.Turtle, screen: turtle.TurtleScreen, args: dict):
+
+    # Extract arguments
+    vector_path = pathlib.Path(args['input'])
+    video_path = pathlib.Path(args['video']) if args['video'] else None
+    start_frame = args['start']
+    offset_tolerance = args['tolerance']
+
 
     # Setup vector decoder
     decoder = vector_video_decode.VectorVideoDecoder(vector_path)
@@ -58,11 +66,11 @@ def play_animation(tortoise: turtle.Turtle, screen: turtle.TurtleScreen,
         media = instance.media_new(str(video_path.absolute()))
         media.add_option(f'start-time={start_frame / decoder.framerate:.3f}')
         vlc_player.set_media(media)
-        vlc_player.video_set_scale(0.2)
+        vlc_player.video_set_scale(args["vlc_scale"])
         vlc_player.play()
 
         # Make sure the video has started playing so they can synchronize
-        time.sleep(VLC_INITIAL_DELAY)
+        time.sleep(args['vlc_delay'])
 
         # Sychronize start time with video player
         start_time = -vlc_player.get_time() / 1000 + time.time()
@@ -86,7 +94,7 @@ def play_animation(tortoise: turtle.Turtle, screen: turtle.TurtleScreen,
 
             # Clear the screen and draw new frame
             tortoise.clear()
-            draw_path(tortoise, decoder)
+            draw_path(tortoise, decoder, args["scale"])
 
             # Get timing for frame compared to video and update statistics
             end_time = time.time()
@@ -99,11 +107,11 @@ def play_animation(tortoise: turtle.Turtle, screen: turtle.TurtleScreen,
 
             # Determine whether to skip frames or delay frame
             skip_frames = 0
-            if time_offset > OFFSET_TOLERANCE:
+            if time_offset > offset_tolerance:
                 skip_frames = int(time_offset * decoder.framerate) + 1
                 decoder.seek(skip_frames, 1)
-            elif time_offset < -OFFSET_TOLERANCE:
-                time.sleep(-time_offset - OFFSET_TOLERANCE)
+            elif time_offset < -offset_tolerance:
+                time.sleep(-time_offset - offset_tolerance)
 
             # Update screen after time is re-synchronized
             screen.update()
@@ -134,7 +142,8 @@ def play_animation(tortoise: turtle.Turtle, screen: turtle.TurtleScreen,
             f"Maximum Frame Time: {int(max_frame_time*1000)}ms, " \
             f"Average Frame Time: {int(average_frame_time*1000)}ms")
 
-def draw_path(tortoise: turtle.Turtle, decoder: vector_video_decode.VectorVideoDecoder):
+def draw_path(tortoise: turtle.Turtle, decoder: vector_video_decode.VectorVideoDecoder,
+        scale: float=1.0):
 
     contours = decoder.read()
 
@@ -149,22 +158,23 @@ def draw_path(tortoise: turtle.Turtle, decoder: vector_video_decode.VectorVideoD
 
             # Go to initial postion without drawing
             tortoise.up()
-            move_turtle(tortoise, contour[0], decoder.dimensions)
+            move_turtle(tortoise, contour[0], decoder.dimensions, scale)
             tortoise.begin_fill()
             tortoise.down()
 
             # Draw remaining points
             for point in contour:
-                move_turtle(tortoise, point, decoder.dimensions)
+                move_turtle(tortoise, point, decoder.dimensions, scale)
             
             # Close loop by drawing back to initial position
-            move_turtle(tortoise, contour[0], decoder.dimensions)
+            move_turtle(tortoise, contour[0], decoder.dimensions, scale)
             tortoise.end_fill()         
 
 def move_turtle(tortoise: turtle.Turtle, point: typing.Tuple[float, float],
-        frame_dimensions: typing.Tuple[int, int]):
+        frame_dimensions: typing.Tuple[int, int], scale_factor: float=1.0):
 
-    tortoise.goto(point[0] - frame_dimensions[0]/2, frame_dimensions[1]/2 - point[1])
+    tortoise.goto((point[0] - frame_dimensions[0]/2) * scale_factor,
+            (frame_dimensions[1]/2 - point[1]) * scale_factor)
 
 if __name__ == '__main__':
     main()

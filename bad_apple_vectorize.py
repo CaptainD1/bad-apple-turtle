@@ -19,8 +19,14 @@ def main():
         help="Start frame")
     parser.add_argument('-e', '--end', type=int, default=-1,
         help="End frame")
+    parser.add_argument('--threshold', type=int, default=20,
+        help="The threshold value for determining what should be black or white. " \
+            "Valid range: 0 - 255"
+        )
 
     args = vars(parser.parse_args())
+
+    threshold_value = args['threshold']
 
     input_path = pathlib.Path(args['input'])
     if args['output']:
@@ -57,7 +63,7 @@ def main():
         while success and frame_num <= end_frame:
 
             # Convert video to black and white
-            image = cv2.threshold(cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY), 128, 1,
+            image = cv2.threshold(cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY), threshold_value, 1,
                     cv2.THRESH_BINARY)[1]
 
             # Vectorize video
