@@ -111,14 +111,16 @@ class ContourSupplier:
     _frame_dimensions: typing.Tuple[int, int]
     _threshold: int
     _current_frame: int
-    _simplify_level: int
+    _max_points: int
+    _min_area: float
 
-    def __init__(self, source_path: pathlib.Path, threshold=96, simplify_level=0):
+    def __init__(self, source_path: pathlib.Path, threshold=96, max_points=-1, min_area=0.0):
 
         self._source_path = source_path
         self._threshold = threshold
-        self._simplify_level = simplify_level
         self._current_frame = 0
+        self._max_points = max_points
+        self._min_area = min_area
         self._source = cv2.VideoCapture(str(source_path))
         self._framerate = self._source.get(cv2.CAP_PROP_FPS)
         self._frame_count = int(self._source.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -158,25 +160,25 @@ class ContourSupplier:
         contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # Simplification
-        if self._simplify_level > 0:
+        if self._max_points > 0:
             approx = list(contours)
 
             # Simplify contours based on number of points
             num_points = sum(contour.shape[0] for contour in approx) * math.sqrt(len((approx)))
             eps = 0.0001
             num = 0
-            while num_points > 6000:
+            while num_points > self._max_points * 3 and eps < 0.1:
                 peris = [(cv2.arcLength(c, True) if c.size > 0 else 0) for c in approx]
                 approx = [cv2.approxPolyDP(approx[i], eps * peri, True)  if approx[i].size > 0 else approx[i] for i, peri in enumerate(peris)]
                 num_points = sum(contour.shape[0] for contour in approx) * math.sqrt(len((approx)))
                 num += 1
                 eps *= 1.1
 
-            if self._simplify_level > 1:
-                # Only grab contours above a certain size if there are too many
-                for i in range(len(approx)):
-                    if approx[i].shape[0] < 3 or self.PolyArea(approx[i][:,0,0], approx[i][:,0,1]) < 5:
-                        approx[i] = np.empty((0,1,2), dtype=np.int32)
+        if self._min_area > 0:
+            # Only grab contours above a certain size if there are too many
+            for i in range(len(approx)):
+                if approx[i].shape[0] < 3 or self.PolyArea(approx[i][:,0,0], approx[i][:,0,1]) < self._min_area:
+                    approx[i] = np.empty((0,1,2), dtype=np.int32)
             
             return approx, hierarchy
         return contours, hierarchy

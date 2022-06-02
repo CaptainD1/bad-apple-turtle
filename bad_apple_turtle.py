@@ -31,8 +31,10 @@ def main():
         help="The tolerance of desync in seconds before the turtle drops frames.")
     parser.add_argument('--threshold', type=int, default=96,
         help="The vectorizing threshold when using live conversion.")
-    parser.add_argument('--simplify', type=int, default=0,
-        help="How much to simplify the vectors before drawing.")
+    parser.add_argument('--max-points', type=int, default=0,
+        help="The approximate maximimum number of points to render in turtle. 0 means unlimited.")
+    parser.add_argument('--min-area', type=float, default=-1,
+        help="The minimum area of a contour required for it to be rendered.")
     parser.add_argument('--no-vlc', action='store_true',
         help="Don't play video in VLC window alongside turtle.")
     parser.add_argument('--no-turtle', action='store_true',
@@ -68,8 +70,22 @@ def play_animation(args: dict):
         decoder.open()
     else:
         contour_provider = vector_video.ContourSupplier(pathlib.Path(video_path),
-                args["threshold"], args["simplify"])
+            threshold=args["threshold"], max_points=args['max_points'], min_area=args['min_area'])
         decoder = vector_video.VectorVideoLiveDecoder(contour_provider)
+
+    # Setup turtle
+    if play_turtle:
+        tortoise = turtle.Turtle()
+        tortoise.speed(10)
+        tortoise.hideturtle()
+        turtle.bgcolor("black")
+        screen = tortoise.getscreen()
+        screen.tracer(0,0)
+
+        # Create variables for video statistics
+        max_frame_time = 0
+        frames_dropped = 0
+        total_time = 0
 
     # Play original video next to turtle
     if play_vlc:
@@ -95,19 +111,6 @@ def play_animation(args: dict):
 
     decoder.seek(start_frame)
 
-    if play_turtle:
-        # Setup turtle
-        tortoise = turtle.Turtle()
-        tortoise.speed(10)
-        tortoise.hideturtle()
-        turtle.bgcolor("black")
-        screen = tortoise.getscreen()
-        screen.tracer(0,0)
-
-        # Create variables for video statistics
-        max_frame_time = 0
-        frames_dropped = 0
-        total_time = 0
     frame_count_digits = int(math.log10(decoder.total_frames) + 1)
 
     if do_output:
@@ -154,7 +157,7 @@ def play_animation(args: dict):
                 print(f"\rFrame render time:{frame_render_time*1000: 7.2f}ms, " \
                     f"Offset:{new_time_offset*1000: 10.2f}ms, " \
                     f"Frame: {decoder.current_frame:0{frame_count_digits}}/{decoder.total_frames}, " \
-                    f"Contours/Points/Drawn: {num_contours}/{num_points}/{contours_drawn}   " \
+                    f"Contours/Drawn Contours/Points: {num_contours}/{contours_drawn}/{num_points}   " \
                     f"Time per point: {time_per_point}us     ", end='')
                 if skip_frames != 0:
                     frames_dropped += skip_frames
