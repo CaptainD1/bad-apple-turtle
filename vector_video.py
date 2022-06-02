@@ -9,7 +9,7 @@ import cv2
 import numpy.typing as npt
 import numpy as np
 
-FILE_VERSIONS = (1, )
+FILE_VERSIONS = (1, 2)
 
 class VectorContour:
 
@@ -26,7 +26,7 @@ class VectorContour:
         return self._color
 
     def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
-            typing.Union[npt.ArrayLike, float]:
+            typing.Union[npt.ArrayLike, int]:
         return self._points[index]
 
     def __len__(self) -> int:
@@ -43,7 +43,7 @@ class VectorFrame:
         self._contours = contours
 
     def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
-            typing.Union[VectorContour, npt.ArrayLike, float]:
+            typing.Union[VectorContour, npt.ArrayLike, int]:
 
         if type(index) == tuple:
             return self._contours[index[0]][index[1:]]
@@ -84,7 +84,7 @@ class VectorVideo:
         return len(self._frames)
 
     def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
-            typing.Union[VectorFrame, VectorContour, npt.ArrayLike, float]:
+            typing.Union[VectorFrame, VectorContour, npt.ArrayLike, int]:
 
         if type(index) == tuple:
             return self._frames[index[0]][index[1:]]
@@ -159,9 +159,10 @@ class ContourSupplier:
         # Vectorize
         contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+        approx = list(contours)
+
         # Simplification
         if self._max_points > 0:
-            approx = list(contours)
 
             # Simplify contours based on number of points
             num_points = sum(contour.shape[0] for contour in approx) * math.sqrt(len((approx)))
@@ -180,8 +181,7 @@ class ContourSupplier:
                 if approx[i].shape[0] < 3 or self.PolyArea(approx[i][:,0,0], approx[i][:,0,1]) < self._min_area:
                     approx[i] = np.empty((0,1,2), dtype=np.int32)
             
-            return approx, hierarchy
-        return contours, hierarchy
+        return approx, hierarchy
 
     @staticmethod
     def PolyArea(x,y):
@@ -205,7 +205,7 @@ class VectorVideoEncoder:
         return self._video
 
     def feed_contours(self,
-            contours: typing.List[typing.Tuple[int, typing.List[typing.Tuple[float, float]]]],
+            contours: typing.List[typing.Tuple[int, typing.List[typing.Tuple[int, int]]]],
             hierarchy: npt.ArrayLike):
         
         frame = VectorFrame([VectorContour(self._get_color(hierarchy, i), points[:,0]) \
@@ -262,7 +262,7 @@ class VectorVideoEncoder:
     @staticmethod
     def _encode_contour(contour: VectorContour) -> bytes:
         # Encode color, number of points, and point data
-        return struct.pack(f"<BI{2*len(contour)}f", contour.color, len(contour),
+        return struct.pack(f"<BI{2*len(contour)}i", contour.color, len(contour),
                 *(scalar for point in contour for scalar in point))
 
 class VectorVideoDecoder:
@@ -337,6 +337,7 @@ class VectorVideoFileDecoder(VectorVideoDecoder):
     _file_object: BufferedReader
     _file_size: int
     _header_size: int
+    _point_dtype: str
 
     def __init__(self, vector_file_path: pathlib.Path):
 
@@ -351,6 +352,11 @@ class VectorVideoFileDecoder(VectorVideoDecoder):
             if file_version not in FILE_VERSIONS:
                 raise TypeError(f"Invalid file format. Wanted '{FILE_VERSIONS}' " \
                         f"but got '{file_version}'.")
+
+            if file_version == 1:
+                self._point_dtype = "<f4"
+            elif file_version == 2:
+                self._point_dtype = "<i4"
 
             self._header_size = struct.calcsize("<IfII")
             self._file_size = self._file_path.stat().st_size
@@ -402,7 +408,8 @@ class VectorVideoFileDecoder(VectorVideoDecoder):
             contours = []
             for contour_num in range(num_contours):
                 color, num_points = self._get_data("<BI")
-                points = np.frombuffer(self._file_object.read(struct.calcsize(f"<{num_points*2}f")), dtype="<f4")
+                points = np.frombuffer(self._file_object.read(
+                        struct.calcsize(f"<{num_points*2}i")), dtype=self._point_dtype)
                 points.shape = (num_points, 2)
                 contour = VectorContour(color, points)
                 contours.append(contour)
