@@ -529,6 +529,10 @@ class VectorVideoLiveDecoder(VectorVideoDecoder):
     def video(self) -> VectorVideo:
         return self._vector_encoder.video
 
+    @property
+    def encoder(self) -> VectorVideoEncoder:
+        return self._vector_encoder
+
     def seek(self, frame_offset: int, whence: int=0):
         if whence == 0:
             self._contour_supplier.seek(frame_offset)

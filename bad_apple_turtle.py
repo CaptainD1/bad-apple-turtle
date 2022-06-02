@@ -10,18 +10,22 @@ import vector_video
 def main():
 
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Plays a vectorized video in a Python turtle.")
-    parser.add_argument('input', type=str,
+    parser = argparse.ArgumentParser(description="Plays a video using a Python turtle. " \
+            "If --input is specified, play pre-converted video in turtle. " \
+            "Otherwise, convert --video realtime.")
+    parser.add_argument('-i', '--input', type=str, default=None,
         help="Input vector file to play")
     parser.add_argument('-v', '--video', type=str, default=None,
-        help="Video to play along with turtle.")
+        help="Video to play with turtle.")
+    parser.add_argument('-o', '--output', type=str, default=None,
+        help="Output file for vector video.")
     parser.add_argument('-s', '--start', type=int, default=0,
         help="Starting frame of video.")
     parser.add_argument('--scale', type=float, default=1.0,
         help="Scale multiplier of turtle graphics.")
-    parser.add_argument('--vlc_scale', type=float, default=0.2,
+    parser.add_argument('--vlc-scale', type=float, default=0.2,
         help="Scale multiplier of VLC preview window.")
-    parser.add_argument('--vlc_delay', type=float, default=1.5,
+    parser.add_argument('--vlc-delay', type=float, default=1.5,
         help="The delay in seconds after playing VLC video before synchronizing the turtle.")
     parser.add_argument('--tolerance', type=float, default=0.01,
         help="The tolerance of desync in seconds before the turtle drops frames.")
@@ -29,44 +33,46 @@ def main():
         help="The vectorizing threshold when using live conversion.")
     parser.add_argument('--simplify', type=int, default=0,
         help="How much to simplify the vectors before drawing.")
+    parser.add_argument('--no-vlc', action='store_true',
+        help="Don't play video in VLC window alongside turtle.")
+    parser.add_argument('--no-turtle', action='store_true',
+        help="Don't play video in turtle (meant for exporting vector file).")
+    parser.add_argument('--no-play', action='store_true',
+        help="Don't play preview video or turtle video (meant for exporting vector file).")
 
     args = vars(parser.parse_args())
 
-    # Setup turtle
-    tortoise = turtle.Turtle()
-    tortoise.speed(10)
-    tortoise.hideturtle()
-    turtle.bgcolor("black")
-    screen = tortoise.getscreen()
-    screen.tracer(0,0)
+    if not (args['input'] or args['video']):
+        print("Must specify at least one of --input or --video")
+        return
 
     # Play actual animation
-    play_animation(tortoise, screen, args)
+    play_animation(args)
 
-    # Close the screen when finished
-    screen.bye()
-
-def play_animation(tortoise: turtle.Turtle, screen: turtle.TurtleScreen, args: dict):
+def play_animation(args: dict):
 
     # Extract arguments
-    vector_path = pathlib.Path(args['input'])
+    vector_path = pathlib.Path(args['input']) if args['input'] else None
     video_path = pathlib.Path(args['video']) if args['video'] else None
+    output_path = pathlib.Path(args['output']) if args['output'] else None
     start_frame = args['start']
     offset_tolerance = args['tolerance']
 
+    play_vlc = video_path and not (args['no_vlc'] or args['no_play']) 
+    play_turtle = not (args['no_turtle'] or args['no_play'])
+    do_output = output_path and not vector_path
 
     # Setup vector decoder
-    #decoder = vector_video.VectorVideoFileDecoder(vector_path)
-    #decoder.open()
-    contour_provider = vector_video.ContourSupplier(pathlib.Path(vector_path),
-            args["threshold"], args["simplify"])
-    decoder = vector_video.VectorVideoLiveDecoder(contour_provider)
-
-    # Read entire video to memory
-    #decoder.read_all()
+    if vector_path:
+        decoder = vector_video.VectorVideoFileDecoder(vector_path)
+        decoder.open()
+    else:
+        contour_provider = vector_video.ContourSupplier(pathlib.Path(video_path),
+                args["threshold"], args["simplify"])
+        decoder = vector_video.VectorVideoLiveDecoder(contour_provider)
 
     # Play original video next to turtle
-    if video_path:
+    if play_vlc:
         # Only import VLC if needed (then this script can run without VLC)
         import vlc
 
@@ -89,71 +95,102 @@ def play_animation(tortoise: turtle.Turtle, screen: turtle.TurtleScreen, args: d
 
     decoder.seek(start_frame)
 
-    # Create variables for video statistics
-    max_frame_time = 0
-    frames_dropped = 0
-    total_time = 0
+    if play_turtle:
+        # Setup turtle
+        tortoise = turtle.Turtle()
+        tortoise.speed(10)
+        tortoise.hideturtle()
+        turtle.bgcolor("black")
+        screen = tortoise.getscreen()
+        screen.tracer(0,0)
+
+        # Create variables for video statistics
+        max_frame_time = 0
+        frames_dropped = 0
+        total_time = 0
     frame_count_digits = int(math.log10(decoder.total_frames) + 1)
+
+    if do_output:
+        output_file = output_path.open('wb')
 
     while decoder.current_frame < decoder.total_frames:
 
         try:
-            # Get time before frame is drawn
-            frame_start_time = time.time()
+            if play_turtle:
+                # Get time before frame is drawn
+                frame_start_time = time.time()
 
-            # Clear the screen and draw new frame
-            tortoise.clear()
-            num_contours, num_points, contours_drawn = draw_path(tortoise, decoder, args["scale"])
+                # Clear the screen and draw new frame
+                tortoise.clear()
+                num_contours, num_points, contours_drawn = draw_path(tortoise, decoder, args["scale"])
 
-            # Get timing for frame compared to video and update statistics
-            end_time = time.time()
-            current_time = end_time - start_time
-            target_time = decoder.current_frame / decoder.framerate
-            time_offset = current_time - target_time
-            frame_render_time = end_time - frame_start_time
-            total_time += frame_render_time
-            max_frame_time = max(max_frame_time, frame_render_time)
+                # Get timing for frame compared to video and update statistics
+                end_time = time.time()
+                current_time = end_time - start_time
+                target_time = decoder.current_frame / decoder.framerate
+                time_offset = current_time - target_time
+                frame_render_time = end_time - frame_start_time
+                total_time += frame_render_time
+                max_frame_time = max(max_frame_time, frame_render_time)
 
-            # Determine whether to skip frames or delay frame
-            skip_frames = 0
-            if time_offset > offset_tolerance:
-                skip_frames = int(time_offset * decoder.framerate) + 1
-                decoder.seek(skip_frames, 1)
-            elif time_offset < -offset_tolerance:
-                time.sleep(-time_offset - offset_tolerance)
+                # Determine whether to skip frames or delay frame
+                skip_frames = 0
+                if time_offset > offset_tolerance:
+                    skip_frames = int(time_offset * decoder.framerate) + 1
+                    decoder.seek(skip_frames, 1)
+                elif time_offset < -offset_tolerance:
+                    time.sleep(-time_offset - offset_tolerance)
 
-            # Update screen after time is re-synchronized
-            screen.update()
+                # Update screen after time is re-synchronized
+                screen.update()
 
-            # Get time offset after frame delay
-            new_time_offset = time.time() - start_time - target_time
+                # Get time offset after frame delay
+                new_time_offset = time.time() - start_time - target_time
 
-            # Time per point prevent division by zero
-            time_per_point = int((frame_render_time / num_points)*1000000) if num_points != 0 else 0
+                # Time per point prevent division by zero
+                time_per_point = int((frame_render_time / num_points)*1000000) if num_points != 0 else 0
 
-            # Display frame statistics
-            print(f"\rFrame render time:{frame_render_time*1000: 7.2f}ms, " \
-                f"Offset:{new_time_offset*1000: 10.2f}ms, " \
-                f"Frame: {decoder.current_frame:0{frame_count_digits}}/{decoder.total_frames}, " \
-                f"Contours/Points/Drawn: {num_contours}/{num_points}/{contours_drawn}   " \
-                f"Time per point: {time_per_point}us     ", end='')
-            if skip_frames != 0:
-                frames_dropped += skip_frames
-                print(" ({} dropped)".format(skip_frames))
+                # Display frame statistics
+                print(f"\rFrame render time:{frame_render_time*1000: 7.2f}ms, " \
+                    f"Offset:{new_time_offset*1000: 10.2f}ms, " \
+                    f"Frame: {decoder.current_frame:0{frame_count_digits}}/{decoder.total_frames}, " \
+                    f"Contours/Points/Drawn: {num_contours}/{num_points}/{contours_drawn}   " \
+                    f"Time per point: {time_per_point}us     ", end='')
+                if skip_frames != 0:
+                    frames_dropped += skip_frames
+                    print(" ({} dropped)".format(skip_frames))
+
+            if do_output:
+                if not play_turtle:
+                    print(f"Encoding frame {decoder.current_frame:0{frame_count_digits}}/{decoder.total_frames}  ", end='\r')
+                    decoder.read()
+                decoder.encoder.dump_continue(output_file)
+
         except KeyboardInterrupt:
             print("\nStopping playback...")
             break
 
-     # Close preview video when finished
-    if video_path:
+    # Close preview video when finished
+    if play_vlc:
         vlc_player.release()
 
-    #decoder.close()
+    # Close output file
+    if do_output:
+        output_file.close()
+        print(f"Vector file saved as '{output_path.absolute()}'")
 
-    average_frame_time = total_time / (decoder.current_frame - start_frame - frames_dropped)
-    print(f"\nPlayback complete. Dropped frames: {frames_dropped}, " \
-            f"Maximum Frame Time: {int(max_frame_time*1000)}ms, " \
-            f"Average Frame Time: {int(average_frame_time*1000)}ms")
+    if play_turtle:
+        # Close the screen when finished
+        screen.bye()
+
+    if vector_path:
+        decoder.close()
+
+    if play_turtle:
+        average_frame_time = total_time / (decoder.current_frame - start_frame - frames_dropped)
+        print(f"\nPlayback complete. Dropped frames: {frames_dropped}, " \
+                f"Maximum Frame Time: {int(max_frame_time*1000)}ms, " \
+                f"Average Frame Time: {int(average_frame_time*1000)}ms")
 
 def draw_path(tortoise: turtle.Turtle, decoder: vector_video.VectorVideoDecoder,
         scale: float=1.0):
