@@ -19,8 +19,10 @@ def main():
         help="Video to play with turtle.")
     parser.add_argument('-o', '--output', type=str, default=None,
         help="Output file for vector video.")
-    parser.add_argument('-s', '--start', type=int, default=0,
-        help="Starting frame of video.")
+    parser.add_argument('-ss', '--frame-start', type=int, default=0,
+        help="Set start of frame range.")
+    parser.add_argument('-to', '--frame-stop', type=int, default=-1,
+        help="Set end of frame range.")
     parser.add_argument('--scale', type=float, default=1.0,
         help="Scale multiplier of turtle graphics.")
     parser.add_argument('--vlc-scale', type=float, default=0.2,
@@ -57,7 +59,7 @@ def play_animation(args: dict):
     vector_path = pathlib.Path(args['input']) if args['input'] else None
     video_path = pathlib.Path(args['video']) if args['video'] else None
     output_path = pathlib.Path(args['output']) if args['output'] else None
-    start_frame = args['start']
+    start_frame = args['frame_start']
     offset_tolerance = args['tolerance']
 
     play_vlc = video_path and not (args['no_vlc'] or args['no_play']) 
@@ -72,6 +74,8 @@ def play_animation(args: dict):
         contour_provider = vector_video.ContourSupplier(pathlib.Path(video_path),
             threshold=args["threshold"], max_points=args['max_points'], min_area=args['min_area'])
         decoder = vector_video.VectorVideoLiveDecoder(contour_provider)
+
+    end_frame = args['frame_stop'] if args['frame_stop'] > start_frame else decoder.total_frames
 
     # Setup turtle
     if play_turtle:
@@ -111,12 +115,12 @@ def play_animation(args: dict):
 
     decoder.seek(start_frame)
 
-    frame_count_digits = int(math.log10(decoder.total_frames) + 1)
+    frame_count_digits = int(math.log10(end_frame) + 1)
 
     if do_output:
         output_file = output_path.open('wb')
 
-    while decoder.current_frame < decoder.total_frames:
+    while decoder.current_frame < end_frame:
 
         try:
             if play_turtle:
@@ -156,7 +160,7 @@ def play_animation(args: dict):
                 # Display frame statistics
                 print(f"\rFrame render time:{frame_render_time*1000: 7.2f}ms, " \
                     f"Offset:{new_time_offset*1000: 10.2f}ms, " \
-                    f"Frame: {decoder.current_frame:0{frame_count_digits}}/{decoder.total_frames}, " \
+                    f"Frame: {decoder.current_frame:0{frame_count_digits}}/{end_frame}, " \
                     f"Contours/Drawn Contours/Points: {num_contours}/{contours_drawn}/{num_points}   " \
                     f"Time per point: {time_per_point}us     ", end='')
                 if skip_frames != 0:
@@ -165,7 +169,7 @@ def play_animation(args: dict):
 
             if do_output:
                 if not play_turtle:
-                    print(f"Encoding frame {decoder.current_frame:0{frame_count_digits}}/{decoder.total_frames}  ", end='\r')
+                    print(f"Encoding frame {decoder.current_frame:0{frame_count_digits}}/{end_frame}  ", end='\r')
                     decoder.read()
                 decoder.encoder.dump_continue(output_file)
 
