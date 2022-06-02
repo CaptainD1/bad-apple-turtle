@@ -1,9 +1,16 @@
 import argparse
+from ast import Import
 import pathlib
 import turtle
 import time
 import typing
 import math
+
+try:
+    import vlc
+    has_vlc = True
+except ImportError:
+    has_vlc = False
 
 import bad_apple_turtle.vector_video as vector_video
 
@@ -62,7 +69,7 @@ def play_animation(args: dict):
     start_frame = args['frame_start']
     offset_tolerance = args['tolerance']
 
-    play_vlc = video_path and not (args['no_vlc'] or args['no_play']) 
+    play_vlc = video_path and not (args['no_vlc'] or args['no_play'])  and has_vlc
     play_turtle = not (args['no_turtle'] or args['no_play'])
     do_output = output_path and not vector_path
 
@@ -94,7 +101,6 @@ def play_animation(args: dict):
     # Play original video next to turtle
     if play_vlc:
         # Only import VLC if needed (then this script can run without VLC)
-        import vlc
 
         instance = vlc.Instance("--verbose=-1")
         instance.log_unset()
