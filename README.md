@@ -7,18 +7,14 @@ You need OpenCV installed for this to work. Python-vlc is also used when playing
 
 Make sure OpenCV is installed with FFMPEG support and VLC Media Player is installed before python-vlc.
 
-First, you need to run `bad_apple_vectorize.py` while specifying an input video. This converts each frame of the video into vectors for the turtle to display. You can specify an output file, but if not, it will append "\_vectorized" to the name and change the extension to `.dat`.
+You have several options. You can directly play a video in a turtle by specifying it in the command with `-v`/`--video`. If you don't want the original to play next to it, you can use the `--no-vlc` argument. If you want to export the resulting vectorized video to a file, you can also specify an output file with `-o`/`--output`. You can then play the vectorized video again later using `-i`/`--input`. If you specify a vectorized video and a normal video at the same time, the turtle will play the vectorized one while VLC will play the normal video. If you just want to output a file without playing the video at the same time, you can use the `--no-play` argument. Once the vectorized video is exported, the original is no longer required for turtle playback, though there is no audio included.
 
-Lower `--threshold` values may provide sharper images with more of the gradients being converted into white than black.
+If the turtle is not synchronized with the video, you can try increasing the `--vlc_delay` option, though it's already fairly high. If you are getting lots of dropped frames, you can use the simplification options, which are `--max-points` and `--min-area`. `--max-points` is the maximum number of points in a frame times the square root of the number of curves before the vectors are simplified. `--min-area` is the minimum area a curve needs for it to be rendered. Alternatively, you can try increasing `--tolerance`, which is how much time offset is allowed before frames are dropped, or get a faster computer.
 
-Next, run `bad_apple_turtle.py` and specify the name of the new vector file. This will open up a turtle window that will play the video. You can include a video with the vector file using `-v <video_path>`. If you do, a VLC window will also open and play the original video, synchronized with the turtle. When specifying an external video, it will usually drop a few frames of the turtle video at the beginning while trying to synchronize the two.
+Increasing the `--threshold` will increase how much of the greys are converted to black, and decreasing it will increase the amount of white. You can also use `-ss` and `-to` to specify starting and ending frames to playback (or export to a file)
 
-If the turtle is not synchronized with the video, you can try increasing the `--vlc_delay` option, though it's already fairly high. If you are getting lots of dropped frames, you can try increasing `--tolerance` or get a faster computer.
+There are other options and I recommend you use `--help` for more information.
 
-There are other options with both files, and I recommend you use `--help` for more information (or look at the source code, the code is near the top and pretty self-explanatory.)
-
-I used this video: https://www.youtube.com/watch?v=UkgK8eUdpAo
+I used this video for testing: https://www.youtube.com/watch?v=UkgK8eUdpAo
 
 Theoretically, you could probably put any video through this, but I do not know how well it would work and it would be converted to binary black and white.
-
-I plan to eventually release this on pypi, but I'm going to make sure I get everything streamlined first.
