@@ -5,7 +5,7 @@ import time
 import typing
 import math
 
-import bad_apple_turtle.vector_video
+import bad_apple_turtle.vector_video as vector_video
 
 def main():
 
