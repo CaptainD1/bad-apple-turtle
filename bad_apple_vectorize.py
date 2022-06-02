@@ -5,7 +5,7 @@ import math
 
 import cv2
 
-import vector_video_encode
+import vector_video
 
 def main():
 
@@ -19,7 +19,7 @@ def main():
         help="Start frame")
     parser.add_argument('-e', '--end', type=int, default=-1,
         help="End frame")
-    parser.add_argument('--threshold', type=int, default=20,
+    parser.add_argument('--threshold', type=int, default=96,
         help="The threshold value for determining what should be black or white. " \
             "Valid range: 0 - 255"
         )
@@ -54,9 +54,11 @@ def main():
 
     success, orig = source.read()
 
-    # Create output file and write metadata
-    output_path.write_bytes(struct.pack('<fIII', source_framerate, end_frame - frame_num,
-            source_frame_dimensions[0], source_frame_dimensions[1]))
+    # Create encoder
+    encoder = vector_video.VectorVideoEncoder(source_framerate, source_frame_dimensions)
+
+    # Open file for output
+    file = output_path.open('wb')
 
     # Stop gracefully if process interrupted
     try:
@@ -68,11 +70,12 @@ def main():
 
             # Vectorize video
             contours, hierarchy = cv2.findContours(image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            encoder.feed_contours(contours, hierarchy)
 
             # Encode vectors into bytes and write to file
-            data = vector_video_encode.encode_frame(contours, hierarchy)
-            with output_path.open('ab') as file:
-                file.write(data)
+            encoder.dump_continue(file)
+
+            encoder.trim_dumped()
 
             print(f"Frame {frame_num:0{frame_count_digits}}/{end_frame} complete", end='\r')
 
@@ -81,6 +84,8 @@ def main():
 
     except KeyboardInterrupt:
         print("\nConversion cancelled")
+    finally:
+        file.close()
 
     print(f"\nPath file saved to: {output_path}")
 
