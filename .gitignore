@@ -162,6 +162,7 @@ cython_debug/
 # Don't include encoded data files or videos
 *.dat
 *.mp4
+*.webm
 
 # Don't incldude vscode files
 .vscode
