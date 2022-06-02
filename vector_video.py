@@ -25,8 +25,8 @@ class VectorContour:
     def color(self) -> int:
         return self._color
 
-    def __getitem__(self, index: typing.SupportsIndex | typing.Tuple[int]) -> \
-            npt.ArrayLike | float:
+    def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
+            typing.Union[npt.ArrayLike, float]:
         return self._points[index]
 
     def __len__(self) -> int:
@@ -42,8 +42,8 @@ class VectorFrame:
     def __init__(self, contours: typing.List[VectorContour] = []):
         self._contours = contours
 
-    def __getitem__(self, index: typing.SupportsIndex | typing.Tuple[int]) -> \
-            VectorContour | npt.ArrayLike | float:
+    def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
+            typing.Union[VectorContour, npt.ArrayLike, float]:
 
         if type(index) == tuple:
             return self._contours[index[0]][index[1:]]
@@ -83,8 +83,8 @@ class VectorVideo:
     def __len__(self) -> int:
         return len(self._frames)
 
-    def __getitem__(self, index: typing.SupportsIndex | typing.Tuple[int]) -> VectorFrame | \
-            VectorContour | npt.ArrayLike | float:
+    def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
+            typing.Union[VectorFrame, VectorContour, npt.ArrayLike, float]:
 
         if type(index) == tuple:
             return self._frames[index[0]][index[1:]]
