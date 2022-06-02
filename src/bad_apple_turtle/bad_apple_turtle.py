@@ -12,6 +12,12 @@ try:
 except ImportError:
     has_vlc = False
 
+try:
+    import yt_dlp
+    has_ytdlp = True
+except ImportError:
+    has_ytdlp = False
+
 import bad_apple_turtle.vector_video as vector_video
 
 def main():
@@ -26,6 +32,12 @@ def main():
         help="Video to play with turtle.")
     parser.add_argument('-o', '--output', type=str, default=None,
         help="Output file for vector video.")
+    # Only include yt-dlp support if module installed
+    if has_ytdlp:
+        parser.add_argument('-d', '--download', type=str, default=None,
+            help="Video URL to download before starting conversion.")
+        parser.add_argument('--demo', action='store_true', 
+            help="Download and play BadApple, regardless of other input settings.")
     parser.add_argument('-ss', '--frame-start', type=int, default=0,
         help="Set start of frame range.")
     parser.add_argument('-to', '--frame-stop', type=int, default=-1,
@@ -53,9 +65,25 @@ def main():
 
     args = vars(parser.parse_args())
 
-    if not (args['input'] or args['video']):
-        print("Must specify at least one of --input or --video")
-        return
+    if args['demo']:
+        args['input'] = None
+        args['video'] = None
+        args['download'] = "https://youtu.be/UkgK8eUdpAo"
+
+    if not (args['input'] or args['video'] or (has_ytdlp and args['download'])):
+        if has_ytdlp:
+            print("Must specify at least one of --input, --video, or --download")
+        else:
+            print("Must specify as least one of --input or --video")
+        exit(1)
+
+    # Download video if set
+    if has_ytdlp and args['download']:
+        with yt_dlp.YoutubeDL() as downloader:
+            info = downloader.extract_info(args['download'], download=True)
+            filename = downloader.prepare_filename(info)
+            if args['video'] == None:
+                args['video'] = pathlib.Path(filename)
 
     # Play actual animation
     play_animation(args)
