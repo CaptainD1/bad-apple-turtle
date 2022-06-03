@@ -5,7 +5,7 @@ This had just been nearly completely re-written to be better in almost every way
 
 Python-vlc is used when playing back a video along side the turtle, but it technically optional. Make sure VLC Media Player is installed before python-vlc if you want to use it.
 
-You can install this with `pip install bad-apple-turtle`. From there, you can run the command with `bad-apple-turtle`.
+You can install this with `pip install bad-apple-turtle`. If you want VLC support, run `pip install bad-apple-turtle[vlc]`, and if you also want to be able to download videos for the script, you can do `pip install bad-apple-turtle[vlc,yt-dlp]`. From there, you can run the command with `bad-apple-turtle`. If you want a quick demo and have yt-dlp installed, you can just do `bad-apple-turtle --demo`.
 
 You have several options when running the command. You can directly play a video in a turtle by specifying it in the command with `-v`/`--video`. If you don't want the original to play next to it, you can use the `--no-vlc` argument. If you want to export the resulting vectorized video to a file, you can also specify an output file with `-o`/`--output`. You can then play the vectorized video again later using `-i`/`--input`. If you specify a vectorized video and a normal video at the same time, the turtle will play the vectorized one while VLC will play the normal video. If you just want to output a file without playing the video at the same time, you can use the `--no-play` argument. Once the vectorized video is exported, the original is no longer required for turtle playback, though there is no audio included.
 
