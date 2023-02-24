@@ -1,5 +1,4 @@
 import argparse
-from ast import Import
 import pathlib
 import turtle
 import time
@@ -62,12 +61,13 @@ def main():
         help="Don't play video in turtle (meant for exporting vector file).")
     parser.add_argument('--no-play', action='store_true',
         help="Don't play preview video or turtle video (meant for exporting vector file).")
+    parser.add_argument('--debug', action='store_true',
+        help="Display extra debug information in terminal.")
 
     args = vars(parser.parse_args())
 
     if args['demo']:
         args['input'] = None
-        args['video'] = None
         args['download'] = "https://youtu.be/UkgK8eUdpAo"
 
     if not (args['input'] or args['video'] or (has_ytdlp and args['download'])):
@@ -79,10 +79,11 @@ def main():
 
     # Download video if set
     if has_ytdlp and args['download']:
-        with yt_dlp.YoutubeDL() as downloader:
+        yt_dlp_args = {'outtmpl': args['video']} if args['video'] else {}
+        with yt_dlp.YoutubeDL(params=yt_dlp_args) as downloader:
             info = downloader.extract_info(args['download'], download=True)
-            filename = downloader.prepare_filename(info)
             if args['video'] == None:
+                filename = downloader.prepare_filename(info)
                 args['video'] = pathlib.Path(filename)
 
     # Play actual animation
@@ -191,15 +192,20 @@ def play_animation(args: dict):
                 # Time per point prevent division by zero
                 time_per_point = int((frame_render_time / num_points)*1000000) if num_points != 0 else 0
 
-                # Display frame statistics
-                print(f"\rFrame render time:{frame_render_time*1000: 7.2f}ms, " \
-                    f"Offset:{new_time_offset*1000: 10.2f}ms, " \
-                    f"Frame: {decoder.current_frame:0{frame_count_digits}}/{end_frame}, " \
-                    f"Contours/Drawn Contours/Points: {num_contours}/{contours_drawn}/{num_points}   " \
-                    f"Time per point: {time_per_point}us     ", end='')
                 if skip_frames != 0:
                     frames_dropped += skip_frames
-                    print(" ({} dropped)".format(skip_frames))
+
+                # Display frame statistics
+                stats = f"\rFrame: {decoder.current_frame:0{frame_count_digits}}/{end_frame}, " \
+                        f"Render time:{frame_render_time*1000: 8.2f}ms, " \
+                        f"Offset:{new_time_offset*1000: 8.2f}ms, " \
+                        f"Dropped: {frames_dropped}"
+                        
+                if args['debug']:
+                    stats += f"Contours/Drawn/Points: {num_contours:03}/{contours_drawn:03}/{num_points:05}, " \
+                        f"Time per point: {time_per_point: 3}us, "
+
+                print(stats, end='')
 
             if do_output:
                 if not play_turtle:
@@ -229,7 +235,7 @@ def play_animation(args: dict):
 
     if play_turtle:
         average_frame_time = total_time / (decoder.current_frame - start_frame - frames_dropped)
-        print(f"\nPlayback complete. Dropped frames: {frames_dropped}, " \
+        print(f"\nPlayback complete. Dropped frames: {frames_dropped}/{decoder.current_frame - start_frame}, " \
                 f"Maximum Frame Time: {int(max_frame_time*1000)}ms, " \
                 f"Average Frame Time: {int(average_frame_time*1000)}ms")
 
