@@ -25,7 +25,7 @@ class VectorContour:
     def color(self) -> int:
         return self._color
 
-    def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
+    def __getitem__(self, index: typing.Union[int, typing.Tuple[int]]) -> \
             typing.Union[npt.ArrayLike, int]:
         return self._points[index]
 
@@ -42,7 +42,7 @@ class VectorFrame:
     def __init__(self, contours: typing.List[VectorContour] = []):
         self._contours = contours
 
-    def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
+    def __getitem__(self, index: typing.Union[int, typing.Tuple[int]]) -> \
             typing.Union[VectorContour, npt.ArrayLike, int]:
 
         if type(index) == tuple:
@@ -83,17 +83,17 @@ class VectorVideo:
     def __len__(self) -> int:
         return len(self._frames)
 
-    def __getitem__(self, index: typing.Union[typing.SupportsIndex, typing.Tuple[int]]) -> \
+    def __getitem__(self, index: typing.Union[int, typing.Tuple[int]]) -> \
             typing.Union[VectorFrame, VectorContour, npt.ArrayLike, int]:
 
         if type(index) == tuple:
             return self._frames[index[0]][index[1:]]
         return self._frames[index]
 
-    def __setitem__(self, index: typing.SupportsIndex, value: VectorFrame):
+    def __setitem__(self, index: int, value: VectorFrame):
         self._frames[index] = value
 
-    def insert(self, index: typing.SupportsIndex, value: VectorFrame):
+    def insert(self, index: int, value: VectorFrame):
         self._frames.insert(index, value)
 
     def append(self, value: VectorFrame):
@@ -213,7 +213,7 @@ class VectorVideoEncoder:
 
         self._video.append(frame)
 
-    def encode_frame(self, index: typing.SupportsIndex) -> bytes:
+    def encode_frame(self, index: int) -> bytes:
 
         frame: VectorFrame = self._video[index]
 
@@ -250,7 +250,7 @@ class VectorVideoEncoder:
             self._video[i] = VectorFrame()
 
     @staticmethod
-    def _get_color(hierarchy: npt.ArrayLike, index: typing.SupportsIndex):
+    def _get_color(hierarchy: npt.ArrayLike, index: int):
         parent = hierarchy[0,index,3]
         color = 0
         while parent != -1:

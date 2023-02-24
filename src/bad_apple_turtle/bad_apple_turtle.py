@@ -66,7 +66,7 @@ def main():
 
     args = vars(parser.parse_args())
 
-    if args['demo']:
+    if 'demo' in args and args['demo']:
         args['input'] = None
         args['download'] = "https://youtu.be/UkgK8eUdpAo"
 
